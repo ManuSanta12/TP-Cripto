@@ -1,4 +1,5 @@
 #include "../include/parser.h"
+#include "../include/stegobmp.h"
 #include <string.h>
 #include <stdio.h>
 
@@ -76,6 +77,12 @@ int parse_arguments(const int argc, char *argv[], ProgramArguments *arguments) {
 
     if (!arguments->bmp_filename) {
         printf("Error: Missing required argument -p\n");
+        return 1;
+    }
+
+    if (arguments->steganography_method && strcmp(arguments->steganography_method, STEGOBMP_LSB1_METHOD) != 0 &&
+            strcmp(arguments->steganography_method, STEGOBMP_LSB4_METHOD) != 0 && strcmp(arguments->steganography_method, STEGOBMP_LSBI_METHOD) != 0) {
+        printf("Error: Unsupported steganography method %s\n", arguments->steganography_method);
         return 1;
     }
 

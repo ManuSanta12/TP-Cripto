@@ -19,11 +19,13 @@ int hide_file_in_bmp(const char *input_filename, BMP *bmp, const char *output_bm
         return 1;
     }
 
-    if (lsb1_hide(bmp, payload_buffer, payload_size)) {
-        printf("Error: Could not hide payload using LSB1\n");
-        free(payload_buffer);
-        free(payload_extension);
-        return 1;
+    if (strcmp(steganography_method, STEGOBMP_LSB1_METHOD) == 0) {
+        if (lsb1_hide(bmp, payload_buffer, payload_size)) {
+            printf("Error: Could not hide payload using LSB1\n");
+            free(payload_buffer);
+            free(payload_extension);
+            return 1;
+        }
     }
 
     free(payload_buffer);
