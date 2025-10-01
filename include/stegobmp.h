@@ -13,6 +13,9 @@
 #define STEGOBMP_LSB1_MASK 0xFE
 #define STEGOBMP_BIT_MASK_1 0x01
 
+#define STEGOBMP_NULL_CHARACTER '\0'
+#define STEGOBMP_NULL_CHARACTER_SIZE 1
+
 int hide_file_in_bmp(
     const char *input_filename,
     BMP *bmp,

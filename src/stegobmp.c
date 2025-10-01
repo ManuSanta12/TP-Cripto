@@ -51,7 +51,7 @@ static unsigned char *build_payload_buffer(const char *input_filename, size_t *p
     *payload_extension = strdup(dot);
     const size_t extension_size = strlen(*payload_extension);
 
-    *payload_size = BMP_INT_SIZE_BYTES + file_size + extension_size;
+    *payload_size = BMP_INT_SIZE_BYTES + file_size + extension_size + STEGOBMP_NULL_CHARACTER_SIZE;
 
     unsigned char *buffer = malloc(*payload_size);
     if (!buffer) {
@@ -61,10 +61,10 @@ static unsigned char *build_payload_buffer(const char *input_filename, size_t *p
         return NULL;
     }
 
-    buffer[BMP_BYTE_INDEX_0] = (unsigned char)(file_size >> BMP_BYTE_SHIFT_0 & BMP_BYTE_MASK);
-    buffer[BMP_BYTE_INDEX_1] = (unsigned char)(file_size >> BMP_BYTE_SHIFT_1 & BMP_BYTE_MASK);
-    buffer[BMP_BYTE_INDEX_2] = (unsigned char)(file_size >> BMP_BYTE_SHIFT_2 & BMP_BYTE_MASK);
-    buffer[BMP_BYTE_INDEX_3] = (unsigned char)(file_size >> BMP_BYTE_SHIFT_3 & BMP_BYTE_MASK);
+    buffer[BMP_BYTE_INDEX_0] = (unsigned char)(file_size >> BMP_BYTE_SHIFT_3 & BMP_BYTE_MASK);
+    buffer[BMP_BYTE_INDEX_1] = (unsigned char)(file_size >> BMP_BYTE_SHIFT_2 & BMP_BYTE_MASK);
+    buffer[BMP_BYTE_INDEX_2] = (unsigned char)(file_size >> BMP_BYTE_SHIFT_1 & BMP_BYTE_MASK);
+    buffer[BMP_BYTE_INDEX_3] = (unsigned char)(file_size >> BMP_BYTE_SHIFT_0 & BMP_BYTE_MASK);
 
     if (fread(buffer + BMP_INT_SIZE_BYTES, BMP_BYTE_SIZE, file_size, file) != file_size) {
         printf("Error: Could not read file %s\n", input_filename);
@@ -77,6 +77,7 @@ static unsigned char *build_payload_buffer(const char *input_filename, size_t *p
     fclose(file);
 
     memcpy(buffer + BMP_INT_SIZE_BYTES + file_size, *payload_extension, extension_size);
+    buffer[BMP_INT_SIZE_BYTES + file_size + extension_size] = STEGOBMP_NULL_CHARACTER;
 
     return buffer;
 }
