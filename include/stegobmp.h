@@ -3,9 +3,19 @@
 
 #include "bmp.h"
 
+#define STEGOBMP_FILE_SEEK_START 0
+#define STEGOBMP_FILE_SEEK_END 0
+#define STEGOBMP_EXTENSION_DOT '.'
+
+#define STEGOBMP_BYTES_PER_BYTE 8
+#define STEGOBMP_MOST_SIGNIFICANT_BIT 7
+
+#define STEGOBMP_LSB1_MASK 0xFE
+#define STEGOBMP_BIT_MASK_1 0x01
+
 int hide_file_in_bmp(
     const char *input_filename,
-    const BMP *bmp,
+    BMP *bmp,
     const char *output_bmp_filename,
     const char *steganography_method,
     const char *encryption_method,

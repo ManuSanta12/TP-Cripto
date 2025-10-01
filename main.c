@@ -32,7 +32,7 @@ int main(const int argc, char* argv[]) {
         }
         printf("File successfully embedded\n");
 
-        const int write_status = bmp_write(arguments.output_bmp_filename, bmp);
+        const int write_status = bmp_write(bmp, arguments.output_bmp_filename);
         if (write_status) {
             printf("Error: Can not write BMP file: %s\n", arguments.output_bmp_filename);
             bmp_free(bmp);

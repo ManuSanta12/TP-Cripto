@@ -61,7 +61,7 @@ BMP *bmp_read(const char *bmp_filename) {
     return bmp;
 }
 
-int bmp_write(const char *output_bmp_filename, BMP *bmp) {
+int bmp_write(BMP *bmp, const char *output_bmp_filename) {
     if (!output_bmp_filename || !bmp) {
         printf("Error: Can not open BMP\n");
         return 1;

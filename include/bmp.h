@@ -43,7 +43,7 @@ typedef struct {
 } BMP;
 
 BMP *bmp_read(const char *bmp_filename);
-int bmp_write(const char *output_bmp_filename, BMP *bmp);
+int bmp_write(BMP *bmp, const char *output_bmp_filename);
 void bmp_free(BMP *bmp);
 
 #endif //STEGOBMP_BMP_H
