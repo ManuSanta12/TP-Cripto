@@ -1,4 +1,4 @@
-#include "bmp.h"
+#include "../include/bmp.h"
 
 #include <stdio.h>
 #include <stdlib.h>

@@ -1,6 +1,6 @@
 #include <stdio.h>
-#include "stegobmp.h"
-#include "parser.h"
+#include "include/stegobmp.h"
+#include "include/parser.h"
 
 int main(const int argc, char* argv[]) {
 
