@@ -27,16 +27,18 @@ int main(const int argc, char* argv[]) {
         );
         if (embed_status){
             printf("Error: Can not embed file %s\n", arguments.input_filename);
-        } else {
-            printf("File successfully embedded\n");
-
-            const int write_status = bmp_write(arguments.output_bmp_filename, bmp);
-            if (write_status) {
-                printf("Error: Can not write BMP file: %s\n", arguments.output_bmp_filename);
-            } else {
-                printf("File successfully written to %s\n", arguments.output_bmp_filename);
-            }
+            bmp_free(bmp);
+            return 1;
         }
+        printf("File successfully embedded\n");
+
+        const int write_status = bmp_write(arguments.output_bmp_filename, bmp);
+        if (write_status) {
+            printf("Error: Can not write BMP file: %s\n", arguments.output_bmp_filename);
+            bmp_free(bmp);
+            return 1;
+        }
+        printf("File successfully written to %s\n", arguments.output_bmp_filename);
     }
 
     if (arguments.extract) {
@@ -50,9 +52,10 @@ int main(const int argc, char* argv[]) {
             );
         if (extracted_file_in_bmp) {
             printf("Error: Can not extract file %s\n", arguments.output_bmp_filename);
-        } else {
-            printf("File successfully extracted in %s\n", arguments.output_bmp_filename);
+            bmp_free(bmp);
+            return 1;
         }
+        printf("File successfully extracted in %s\n", arguments.output_bmp_filename);
     }
 
     bmp_free(bmp);
