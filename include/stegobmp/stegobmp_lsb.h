@@ -24,4 +24,6 @@ int lsb1_hide(BMP *bmp, const unsigned char *payload_buffer, size_t payload_size
 int lsb4_hide(BMP *bmp, const unsigned char *payload_buffer, size_t payload_size);
 int lsbI_hide(BMP *bmp, const unsigned char *payload_buffer, size_t payload_size);
 
+unsigned char *lsb1_retrieve(const BMP *bmp, size_t *extracted_payload_size);
+
 #endif //STEGOBMP_STEGOBMP_HIDE_H

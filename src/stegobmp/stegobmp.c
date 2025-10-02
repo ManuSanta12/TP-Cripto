@@ -1,5 +1,5 @@
 #include "../../include/stegobmp/stegobmp.h"
-#include "../../include/stegobmp/stegobmp_hide.h"
+#include "../../include/stegobmp/stegobmp_lsb.h"
 #include "../../include/stegobmp/stegobmp_utils.h"
 
 #include <stdio.h>
@@ -40,5 +40,31 @@ int hide_file_in_bmp(const char *input_filename, BMP *bmp, const char *output_bm
 
     free(payload_buffer);
     free(payload_extension);
+    return 0;
+}
+
+int extract_file_from_bmp(const BMP *bmp, const char *output_filename, const char *steganography_method, const char *encryption_method, const char *encryption_mode, const char *password) {
+    unsigned char *payload_buffer = NULL;
+    size_t extracted_payload_size = 0;
+
+    if (strcmp(steganography_method, STEGOBMP_LSB1_METHOD) == 0) {
+        payload_buffer = lsb1_retrieve(bmp, &extracted_payload_size);
+        if (!payload_buffer) {
+            printf("Error: Could not retrieve payload using LSB1\n");
+            return 1;
+        }
+    } else if (strcmp(steganography_method, STEGOBMP_LSB4_METHOD) == 0) {
+        return 0;
+    } else if (strcmp(steganography_method, STEGOBMP_LSBI_METHOD) == 0) {
+        return 0;
+    }
+
+    if (save_extracted_file(payload_buffer, extracted_payload_size, output_filename) == 1) {
+        printf("Error: Could not save extracted file\n");
+        free(payload_buffer);
+        return 1;
+    }
+
+    free(payload_buffer);
     return 0;
 }

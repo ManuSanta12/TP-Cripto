@@ -15,6 +15,10 @@
 #define STEGOBMP_LSBI_METHOD "LSBI"
 
 unsigned char *build_payload_buffer(const char *input_filename, size_t *payload_size, char **payload_extension);
+
 void write_uint32_big_endian(unsigned char *buffer, uint32_t value);
+uint32_t read_uint32_big_endian(const unsigned char *buffer);
+
+int save_extracted_file(const unsigned char *payload_buffer, size_t extracted_payload_size, const char * output_filename);
 
 #endif //STEGOBMP_STEGOBMP_UTILS_H
