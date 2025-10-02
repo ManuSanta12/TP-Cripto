@@ -10,6 +10,10 @@
 #define STEGOBMP_NULL_CHARACTER '\0'
 #define STEGOBMP_NULL_CHARACTER_SIZE 1
 
+#define STEGOBMP_LSB1_METHOD "LSB1"
+#define STEGOBMP_LSB4_METHOD "LSB4"
+#define STEGOBMP_LSBI_METHOD "LSBI"
+
 unsigned char *build_payload_buffer(const char *input_filename, size_t *payload_size, char **payload_extension);
 void write_uint32_big_endian(unsigned char *buffer, uint32_t value);
 

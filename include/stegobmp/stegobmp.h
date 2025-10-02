@@ -3,10 +3,6 @@
 
 #include "../bmp/bmp.h"
 
-#define STEGOBMP_LSB1_METHOD "LSB1"
-#define STEGOBMP_LSB4_METHOD "LSB4"
-#define STEGOBMP_LSBI_METHOD "LSBI"
-
 int hide_file_in_bmp(
     const char *input_filename,
     BMP *bmp,

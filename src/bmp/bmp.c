@@ -1,9 +1,8 @@
 #include "../../include/bmp/bmp.h"
+#include "../../include/bmp/bmp_utils.h"
 
 #include <stdio.h>
 #include <stdlib.h>
-
-#include "../../include/bmp/bmp_utils.h"
 
 BMP *bmp_read(const char *bmp_filename) {
     FILE *file = fopen(bmp_filename, BMP_FILE_MODE_READ_BINARY);

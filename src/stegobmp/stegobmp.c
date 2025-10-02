@@ -1,11 +1,10 @@
 #include "../../include/stegobmp/stegobmp.h"
+#include "../../include/stegobmp/stegobmp_hide.h"
+#include "../../include/stegobmp/stegobmp_utils.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
-#include "../../include/stegobmp/stegobmp_hide.h"
-#include "../../include/stegobmp/stegobmp_utils.h"
 
 int hide_file_in_bmp(const char *input_filename, BMP *bmp, const char *output_bmp_filename, const char *steganography_method, const char *encryption_method, const char *encryption_mode, const char *password) {
     size_t payload_size;
