@@ -1,6 +1,7 @@
 #include "../include/stegobmp.h"
 
 #include <stddef.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -8,6 +9,7 @@
 #include "../include/bmp.h"
 
 static unsigned char *build_payload_buffer(const char *input_filename, size_t *payload_size, char **payload_extension);
+static void write_uint32_big_endian(unsigned char *buffer, uint32_t value);
 static int lsb1_hide(BMP *bmp, const unsigned char *payload_buffer, size_t payload_size);
 static int lsb4_hide(BMP *bmp, const unsigned char *payload_buffer, size_t payload_size);
 static int lsbI_hide(BMP *bmp, const unsigned char *payload_buffer, size_t payload_size);
@@ -57,7 +59,13 @@ static unsigned char *build_payload_buffer(const char *input_filename, size_t *p
     }
 
     fseek(file, STEGOBMP_FILE_SEEK_END, SEEK_END);
-    const size_t file_size = ftell(file);
+    const long size = ftell(file);
+    if ((unsigned long) size > UINT32_MAX) {
+        printf("Error: File %s is too large to be processed (size = %ld bytes, max = %u)\n", input_filename, size, (unsigned) UINT32_MAX);
+        fclose(file);
+        return NULL;
+    }
+    const uint32_t file_size = (uint32_t) size;
     fseek(file, STEGOBMP_FILE_SEEK_START, SEEK_SET);
 
     const char *dot = strrchr(input_filename, STEGOBMP_EXTENSION_DOT);
@@ -79,10 +87,7 @@ static unsigned char *build_payload_buffer(const char *input_filename, size_t *p
         return NULL;
     }
 
-    buffer[BMP_BYTE_INDEX_0] = (unsigned char)(file_size >> BMP_BYTE_SHIFT_3 & BMP_BYTE_MASK);
-    buffer[BMP_BYTE_INDEX_1] = (unsigned char)(file_size >> BMP_BYTE_SHIFT_2 & BMP_BYTE_MASK);
-    buffer[BMP_BYTE_INDEX_2] = (unsigned char)(file_size >> BMP_BYTE_SHIFT_1 & BMP_BYTE_MASK);
-    buffer[BMP_BYTE_INDEX_3] = (unsigned char)(file_size >> BMP_BYTE_SHIFT_0 & BMP_BYTE_MASK);
+    write_uint32_big_endian(buffer, file_size);
 
     if (fread(buffer + BMP_INT_SIZE_BYTES, BMP_BYTE_SIZE, file_size, file) != file_size) {
         printf("Error: Could not read file %s\n", input_filename);
@@ -98,6 +103,13 @@ static unsigned char *build_payload_buffer(const char *input_filename, size_t *p
     buffer[BMP_INT_SIZE_BYTES + file_size + extension_size] = STEGOBMP_NULL_CHARACTER;
 
     return buffer;
+}
+
+static void write_uint32_big_endian(unsigned char *buffer, const uint32_t value) {
+    buffer[BMP_BYTE_INDEX_0] = value >> BMP_BYTE_SHIFT_3 & BMP_BYTE_MASK;
+    buffer[BMP_BYTE_INDEX_1] = value >> BMP_BYTE_SHIFT_2 & BMP_BYTE_MASK;
+    buffer[BMP_BYTE_INDEX_2] = value >> BMP_BYTE_SHIFT_1 & BMP_BYTE_MASK;
+    buffer[BMP_BYTE_INDEX_3] = value >> BMP_BYTE_SHIFT_0 & BMP_BYTE_MASK;
 }
 
 static int lsb1_hide(BMP *bmp, const unsigned char *payload_buffer, const size_t payload_size) {
