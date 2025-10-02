@@ -1,5 +1,5 @@
 #include "../include/parser.h"
-#include "../include/stegobmp.h"
+#include "../include/stegobmp/stegobmp.h"
 #include <string.h>
 #include <stdio.h>
 
