@@ -6,7 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-int lsb1_hide(BMP *bmp, const unsigned char *payload_buffer, const size_t payload_size) {
+int lsb_1_hide(BMP *bmp, const unsigned char *payload_buffer, const size_t payload_size) {
     const size_t max_amount_bytes = bmp->data_size;
     const size_t required_amount_bytes = payload_size * STEGOBMP_LSB1_BYTES_PER_PAYLOAD;
 
@@ -28,7 +28,7 @@ int lsb1_hide(BMP *bmp, const unsigned char *payload_buffer, const size_t payloa
     return 0;
 }
 
-int lsb4_hide(BMP *bmp, const unsigned char *payload_buffer, const size_t payload_size) {
+int lsb_4_hide(BMP *bmp, const unsigned char *payload_buffer, const size_t payload_size) {
     const size_t max_amount_bytes = bmp->data_size;
     const size_t required_amount_bytes = payload_size * STEGOBMP_LSB4_BYTES_PER_PAYLOAD;
 
@@ -53,7 +53,7 @@ int lsb4_hide(BMP *bmp, const unsigned char *payload_buffer, const size_t payloa
     return 0;
 }
 
-int lsbI_hide(BMP *bmp, const unsigned char *payload_buffer, const size_t payload_size) {
+int lsb_i_hide(BMP *bmp, const unsigned char *payload_buffer, const size_t payload_size) {
     const size_t max_amount_bytes = bmp->data_size;
     const size_t required_amount_bytes = payload_size * STEGOBMP_LSBI_BYTES_PER_PAYLOAD + STEGOBMP_LSBI_CONTROL_BYTES;
 
@@ -84,7 +84,7 @@ int lsbI_hide(BMP *bmp, const unsigned char *payload_buffer, const size_t payloa
     return 0;
 }
 
-unsigned char *lsb1_retrieve(const BMP *bmp, size_t *extracted_payload_size) {
+unsigned char *lsb_1_retrieve(const BMP *bmp, size_t *extracted_payload_size) {
     const size_t bmp_data_size = bmp->data_size;
     size_t bmp_byte_index = 0;
     unsigned char size_buffer[BMP_INT_SIZE_BYTES];
@@ -146,6 +146,102 @@ unsigned char *lsb1_retrieve(const BMP *bmp, size_t *extracted_payload_size) {
         }
 
         payload_byte_index++;
+    }
+
+    *extracted_payload_size = payload_byte_index;
+    return payload_buffer;
+}
+
+unsigned char *lsb_4_retrieve(const BMP *bmp, size_t *extracted_payload_size) {
+    const size_t bmp_data_size = bmp->data_size;
+    size_t bmp_byte_index = 0;
+    unsigned char size_buffer[BMP_INT_SIZE_BYTES];
+
+    if (bmp_data_size < BMP_INT_SIZE_BYTES * STEGOBMP_LSB4_BYTES_PER_PAYLOAD) {
+        printf("Error: BMP does not have enough space to extract the payload size\n");
+        return NULL;
+    }
+
+    for (size_t i = 0; i < BMP_INT_SIZE_BYTES; i++) {
+        unsigned char extracted_byte = 0;
+        if (bmp_byte_index >= bmp_data_size) {
+            printf("Error: BMP does not have the complete payload size\n");
+            return NULL;
+        }
+        const unsigned char msn = bmp->data[bmp_byte_index] & STEGOBMP_LSB4_BIT_MASK_4;
+        extracted_byte |= msn << STEGOBMP_LSB4_NIBBLE_SIZE_BITS;
+        bmp_byte_index++;
+
+        if (bmp_byte_index >= bmp_data_size) {
+            printf("Error: BMP does not have the complete payload size\n");
+            return NULL;
+        }
+        const unsigned char lsn = bmp->data[bmp_byte_index] & STEGOBMP_LSB4_BIT_MASK_4;
+        extracted_byte |= lsn;
+        bmp_byte_index++;
+
+        size_buffer[i] = extracted_byte;
+    }
+
+    const uint32_t file_size = read_uint32_big_endian(size_buffer);
+    const size_t min_payload_bytes = BMP_INT_SIZE_BYTES + file_size + STEGOBMP_NULL_CHARACTER_SIZE;
+    const size_t required_bmp_bytes = min_payload_bytes * STEGOBMP_LSB4_BYTES_PER_PAYLOAD;
+
+    if (file_size == 0 || file_size > (bmp_data_size / STEGOBMP_LSB4_BYTES_PER_PAYLOAD) - BMP_INT_SIZE_BYTES) {
+        printf("Error: Extracted payload size is invalid (%u bytes)\n", file_size);
+        return NULL;
+    }
+
+    if (required_bmp_bytes > bmp_data_size) {
+        printf("Error: BMP does not have the complete payload size (Total size expected: %zu bytes)\n", min_payload_bytes);
+        return NULL;
+    }
+
+    const size_t max_payload_bytes = bmp_data_size / STEGOBMP_LSB4_BYTES_PER_PAYLOAD;
+    unsigned char *payload_buffer = malloc(max_payload_bytes);
+    if (!payload_buffer) {
+        printf("Error: Could not allocate memory for payload buffer\n");
+        return NULL;
+    }
+
+    memcpy(payload_buffer, size_buffer, BMP_INT_SIZE_BYTES);
+
+    size_t payload_byte_index = BMP_INT_SIZE_BYTES;
+
+    while (bmp_byte_index < bmp_data_size && payload_byte_index < max_payload_bytes) {
+        unsigned char extracted_byte = 0;
+        if (bmp_byte_index >= bmp_data_size) {
+            printf("Error: BMP does not have the complete payload expected\n");
+            free(payload_buffer);
+            return NULL;
+        }
+         const unsigned char msn = bmp->data[bmp_byte_index] & STEGOBMP_LSB4_BIT_MASK_4;
+        extracted_byte |= msn << STEGOBMP_LSB4_NIBBLE_SIZE_BITS;
+        bmp_byte_index++;
+
+        if (bmp_byte_index >= bmp_data_size) {
+            printf("Error: BMP does not have the complete payload size\n");
+            free(payload_buffer);
+            return NULL;
+        }
+         const unsigned char lsn = bmp->data[bmp_byte_index] & STEGOBMP_LSB4_BIT_MASK_4;
+        extracted_byte |= lsn;
+        bmp_byte_index++;
+
+        payload_buffer[payload_byte_index] = extracted_byte;
+
+        if (payload_byte_index >= BMP_INT_SIZE_BYTES + file_size && payload_buffer[payload_byte_index] == STEGOBMP_NULL_CHARACTER) {
+            payload_byte_index++;
+            break;
+        }
+
+        payload_byte_index++;
+    }
+
+    if (payload_byte_index < min_payload_bytes) {
+        printf("Error: Extracted payload incomplete or null terminator missing\n");
+        free(payload_buffer);
+        return NULL;
     }
 
     *extracted_payload_size = payload_byte_index;

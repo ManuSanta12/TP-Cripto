@@ -20,10 +20,12 @@
 #define STEGOBMP_LSBI_CONTROL_BYTES 4
 #define STEGOBMP_LSBI_CONTROL_PATTERN 0xA
 
-int lsb1_hide(BMP *bmp, const unsigned char *payload_buffer, size_t payload_size);
-int lsb4_hide(BMP *bmp, const unsigned char *payload_buffer, size_t payload_size);
-int lsbI_hide(BMP *bmp, const unsigned char *payload_buffer, size_t payload_size);
+int lsb_1_hide(BMP *bmp, const unsigned char *payload_buffer, size_t payload_size);
+int lsb_4_hide(BMP *bmp, const unsigned char *payload_buffer, size_t payload_size);
+int lsb_i_hide(BMP *bmp, const unsigned char *payload_buffer, size_t payload_size);
 
-unsigned char *lsb1_retrieve(const BMP *bmp, size_t *extracted_payload_size);
+unsigned char *lsb_1_retrieve(const BMP *bmp, size_t *extracted_payload_size);
+unsigned char *lsb_4_retrieve(const BMP *bmp, size_t *extracted_payload_size);
+unsigned char *lsb_i_retrieve(const BMP *bmp, size_t *extracted_payload_size);
 
 #endif //STEGOBMP_STEGOBMP_HIDE_H

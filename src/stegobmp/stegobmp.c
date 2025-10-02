@@ -16,21 +16,21 @@ int hide_file_in_bmp(const char *input_filename, BMP *bmp, const char *output_bm
     }
 
     if (strcmp(steganography_method, STEGOBMP_LSB1_METHOD) == 0) {
-        if (lsb1_hide(bmp, payload_buffer, payload_size)) {
+        if (lsb_1_hide(bmp, payload_buffer, payload_size)) {
             printf("Error: Could not hide payload using LSB1\n");
             free(payload_buffer);
             free(payload_extension);
             return 1;
         }
     } else if (strcmp(steganography_method, STEGOBMP_LSB4_METHOD) == 0) {
-        if (lsb4_hide(bmp, payload_buffer, payload_size)) {
+        if (lsb_4_hide(bmp, payload_buffer, payload_size)) {
             printf("Error: Could not hide payload using LSB4\n");
             free(payload_buffer);
             free(payload_extension);
             return 1;
         }
     } else if (strcmp(steganography_method, STEGOBMP_LSBI_METHOD) == 0) {
-        if (lsbI_hide(bmp, payload_buffer, payload_size)) {
+        if (lsb_i_hide(bmp, payload_buffer, payload_size)) {
             printf("Error: Could not hide payload using LSBI\n");
             free(payload_buffer);
             free(payload_extension);
@@ -48,15 +48,23 @@ int extract_file_from_bmp(const BMP *bmp, const char *output_filename, const cha
     size_t extracted_payload_size = 0;
 
     if (strcmp(steganography_method, STEGOBMP_LSB1_METHOD) == 0) {
-        payload_buffer = lsb1_retrieve(bmp, &extracted_payload_size);
+        payload_buffer = lsb_1_retrieve(bmp, &extracted_payload_size);
         if (!payload_buffer) {
             printf("Error: Could not retrieve payload using LSB1\n");
             return 1;
         }
     } else if (strcmp(steganography_method, STEGOBMP_LSB4_METHOD) == 0) {
-        return 0;
+        payload_buffer = lsb_4_retrieve(bmp, &extracted_payload_size);
+        if (!payload_buffer) {
+            printf("Error: Could not retrieve payload using LSB4\n");
+            return 1;
+        }
     } else if (strcmp(steganography_method, STEGOBMP_LSBI_METHOD) == 0) {
-        return 0;
+        payload_buffer = lsb_i_retrieve(bmp, &extracted_payload_size);
+        if (!payload_buffer) {
+            printf("Error: Could not retrieve payload using LSBI\n");
+            return 1;
+        }
     }
 
     if (save_extracted_file(payload_buffer, extracted_payload_size, output_filename) == 1) {
