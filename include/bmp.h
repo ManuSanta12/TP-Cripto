@@ -2,6 +2,7 @@
 #define STEGOBMP_BMP_H
 
 #include <stddef.h>
+#include <stdint.h>
 
 #define BMP_HEADER_SIZE 54
 #define BMP_BITS_PER_PIXEL 24
@@ -36,10 +37,10 @@ typedef struct {
     unsigned char header[BMP_HEADER_SIZE];
     unsigned char *data;
     size_t data_size;
-    int width;
-    int height;
-    short bits_per_pixel;
-    int compression;
+    int32_t width;
+    int32_t height;
+    int16_t bits_per_pixel;
+    int32_t compression;
 } BMP;
 
 BMP *bmp_read(const char *bmp_filename);
