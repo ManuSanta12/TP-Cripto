@@ -4,11 +4,16 @@
 #include <string.h>
 #include <stdio.h>
 
+static void print_usage(const char *program_name) {
+    printf("Usage: %s -embed -in <input> -p <bmp> -out <bmp_out> -steg <LSB1|LSB4|LSBI> [-a <aes128|aes192|aes256|3des>] [-m <ecb|cfb|ofb|cbc>] [-pass <password>]\n", program_name);
+    printf("Usage: %s -extract -p <bmp> -out <file_out> -steg <LSB1|LSB4|LSBI> [-a <aes128|aes192|aes256|3des>] [-m <ecb|cfb|ofb|cbc>] [-pass <password>]\n", program_name);
+    printf("Usage: %s -analyze -p <bmp> -out <file_out>\n", program_name);
+}
+
 int parse_arguments(const int argc, char *argv[], ProgramArguments *arguments) {
 
-    if (argc < 8) {
-        printf("Usage: %s -embed -in <input> -p <bmp> -out <bmp_out> -steg <LSB1|LSB4|LSBI> [-a <aes128|aes192|aes256|3des>] [-m <ecb|cfb|ofb|cbc>] [-pass <password>]\n", argv[0]);
-        printf("Usage: %s -extract -p <bmp> -out <bmp_out> -steg <LSB1|LSB4|LSBI> [-a <aes128|aes192|aes256|3des>] [-m <ecb|cfb|ofb|cbc>] [-pass <password>]\n", argv[0]);
+    if (argc < 2) {
+        print_usage(argv[0]);
         return 1;
     }
 
@@ -17,6 +22,8 @@ int parse_arguments(const int argc, char *argv[], ProgramArguments *arguments) {
             arguments->embed = 1;
         } else if (strcmp(argv[i], "-extract") == 0) {
             arguments->extract = 1;
+        } else if (strcmp(argv[i], "-analyze") == 0) {
+            arguments->analyze = 1;
         } else if (strcmp(argv[i], "-in") == 0) {
             if (i + 1 < argc) {
                 arguments->input_filename = argv[i + 1];
@@ -76,6 +83,17 @@ int parse_arguments(const int argc, char *argv[], ProgramArguments *arguments) {
         }
     }
 
+    const int actions_selected = arguments->embed + arguments->extract + arguments->analyze;
+    if (actions_selected == 0) {
+        printf("Error: Missing required action (-embed | -extract | -analyze)\n");
+        print_usage(argv[0]);
+        return 1;
+    }
+    if (actions_selected > 1) {
+        printf("Error: Only one action can be selected at a time\n");
+        return 1;
+    }
+
     if (!arguments->bmp_filename) {
         printf("Error: Missing required argument -p\n");
         return 1;
@@ -97,8 +115,13 @@ int parse_arguments(const int argc, char *argv[], ProgramArguments *arguments) {
             printf("Error: Missing required arguments for extraction\n");
             return 1;
         }
+    } else if (arguments->analyze) {
+        if (!arguments->output_bmp_filename) {
+            printf("Error: Missing required argument -out for analysis\n");
+            return 1;
+        }
     } else {
-        printf("Error: Missing required argument for action -embed|extract\n");
+        printf("Error: Missing required argument for action -embed|-extract|-analyze\n");
         return 1;
     }
 

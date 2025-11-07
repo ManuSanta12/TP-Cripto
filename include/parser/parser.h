@@ -4,6 +4,7 @@
 typedef struct {
     int embed;
     int extract;
+    int analyze;
     const char *input_filename;
     const char *bmp_filename;
     const char *output_bmp_filename;
