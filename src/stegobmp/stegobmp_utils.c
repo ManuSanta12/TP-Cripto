@@ -1,6 +1,7 @@
 #include "../../include/stegobmp/stegobmp_utils.h"
 #include "../../include/bmp/bmp_utils.h"
 
+#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -79,25 +80,34 @@ uint32_t read_uint32_big_endian(const unsigned char *buffer) {
 
 int save_extracted_file(const unsigned char *payload_buffer, const size_t extracted_payload_size, const char * output_filename) {
     const size_t file_size = read_uint32_big_endian(payload_buffer);
-    const size_t extension_start_index = BMP_INT_SIZE_BYTES + file_size;
+    size_t extension_start_index = 0;
+    size_t extension_length = 0;
 
     if (file_size == 0) {
         printf("Error: Size of extracted file is zero\n");
         return 1;
     }
 
-    if (extension_start_index >= extracted_payload_size || payload_buffer[extension_start_index] != STEGOBMP_EXTENSION_DOT || payload_buffer[extracted_payload_size - 1] != STEGOBMP_NULL_CHARACTER) {
+    if (!stego_payload_locate_extension(payload_buffer, extracted_payload_size, file_size, &extension_start_index, &extension_length)) {
         printf("Error: Extracted payload does not have a valid extension (extension or null terminator missing)\n");
         return 1;
     }
 
-    const char *extension = (const char *) &payload_buffer[extension_start_index];
-    const size_t output_filename_base_lenght = strlen(output_filename);
-    const size_t output_filename_extension_lenght = strlen(extension);
+    const size_t output_filename_base_length = strlen(output_filename);
+    char *extension = malloc(extension_length + STEGOBMP_NULL_CHARACTER_SIZE);
+    if (!extension) {
+        printf("Error: Could not allocate memory for extension buffer\n");
+        return 1;
+    }
+    memcpy(extension, payload_buffer + extension_start_index, extension_length);
+    extension[extension_length] = STEGOBMP_NULL_CHARACTER;
 
-    char *final_output_filename = malloc(output_filename_base_lenght + output_filename_extension_lenght + STEGOBMP_NULL_CHARACTER_SIZE);
+    const size_t output_filename_extension_length = strlen(extension);
+
+    char *final_output_filename = malloc(output_filename_base_length + output_filename_extension_length + STEGOBMP_NULL_CHARACTER_SIZE);
     if (!final_output_filename) {
         printf("Error: Could not allocate memory for output filename\n");
+        free(extension);
         return 1;
     }
 
@@ -107,6 +117,7 @@ int save_extracted_file(const unsigned char *payload_buffer, const size_t extrac
     FILE *file = fopen(final_output_filename, BMP_FILE_MODE_WRITE_BINARY);
     if (!file) {
         printf("Error: Could not open output file %s\n", final_output_filename);
+        free(extension);
         free(final_output_filename);
         return 1;
     }
@@ -114,11 +125,44 @@ int save_extracted_file(const unsigned char *payload_buffer, const size_t extrac
     if (fwrite(payload_buffer + BMP_INT_SIZE_BYTES, BMP_BYTE_SIZE, file_size, file) != file_size) {
         printf("Error: Could not write to output file %s\n", final_output_filename);
         fclose(file);
+        free(extension);
         free(final_output_filename);
         return 1;
     }
 
     fclose(file);
+    free(extension);
     free(final_output_filename);
+    return 0;
+}
+
+int stego_payload_locate_extension(const unsigned char *payload_buffer, const size_t payload_size, const size_t file_size, size_t *extension_offset, size_t *extension_length) {
+    const size_t start_index = BMP_INT_SIZE_BYTES + file_size;
+
+    if (!payload_buffer || payload_size <= start_index || payload_buffer[start_index] != STEGOBMP_EXTENSION_DOT) {
+        return 0;
+    }
+
+    size_t current_index = start_index + 1;
+    while (current_index < payload_size) {
+        const unsigned char current_char = payload_buffer[current_index];
+        if (current_char == STEGOBMP_NULL_CHARACTER) {
+            if (current_index == start_index + 1) {
+                return 0;
+            }
+            if (extension_offset) {
+                *extension_offset = start_index;
+            }
+            if (extension_length) {
+                *extension_length = current_index - start_index;
+            }
+            return 1;
+        }
+        if (!isalnum(current_char) && current_char != STEGOBMP_EXTENSION_DOT) {
+            return 0;
+        }
+        current_index++;
+    }
+
     return 0;
 }

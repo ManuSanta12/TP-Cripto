@@ -20,5 +20,6 @@ void write_uint32_big_endian(unsigned char *buffer, uint32_t value);
 uint32_t read_uint32_big_endian(const unsigned char *buffer);
 
 int save_extracted_file(const unsigned char *payload_buffer, size_t extracted_payload_size, const char * output_filename);
+int stego_payload_locate_extension(const unsigned char *payload_buffer, size_t payload_size, size_t file_size, size_t *extension_offset, size_t *extension_length);
 
 #endif //STEGOBMP_STEGOBMP_UTILS_H

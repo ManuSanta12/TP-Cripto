@@ -57,14 +57,15 @@ static int validate_payload_buffer(const unsigned char *payload_buffer, size_t p
     }
 
     const uint32_t declared_size = read_uint32_big_endian(payload_buffer);
-    const size_t required_size = (size_t) declared_size + BMP_INT_SIZE_BYTES + STEGOBMP_NULL_CHARACTER_SIZE;
+    size_t extension_offset = 0;
+    size_t extension_length = 0;
 
-    if (required_size > payload_size) {
+    if (!stego_payload_locate_extension(payload_buffer, payload_size, declared_size, &extension_offset, &extension_length)) {
         return 0;
     }
 
-    const unsigned char terminator = payload_buffer[required_size - 1];
-    if (terminator != STEGOBMP_NULL_CHARACTER) {
+    const size_t required_size = BMP_INT_SIZE_BYTES + (size_t) declared_size + extension_length + STEGOBMP_NULL_CHARACTER_SIZE;
+    if (required_size > payload_size) {
         return 0;
     }
 
