@@ -4,6 +4,7 @@
 #include "include/stegobmp/stegobmp_utils.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 
 int main(const int argc, char* argv[]) {
 
@@ -68,11 +69,37 @@ int main(const int argc, char* argv[]) {
         const int analysis_status = stego_analysis_run(bmp, &analysis_result);
         if (analysis_status || !analysis_result.has_payload) {
             printf("No payload detected in BMP\n");
+            if (analysis_result.has_method_guess && analysis_result.method_guess != STEGO_ANALYSIS_METHOD_UNKNOWN) {
+                printf(
+                    "Most likely method: %s (signature %s detected at offset %zu)\n",
+                    stego_analysis_method_to_string(analysis_result.method_guess),
+                    analysis_result.method_guess_signature ? analysis_result.method_guess_signature : "unknown",
+                    analysis_result.method_guess_signature_offset
+                );
+            }
         } else {
             printf("Payload detected using method: %s\n", stego_analysis_method_to_string(analysis_result.method));
             printf("Declared payload size: %zu bytes\n", analysis_result.declared_payload_size);
 
-            if (arguments.output_bmp_filename) {
+            if (analysis_result.payload_format == STEGO_ANALYSIS_PAYLOAD_FORMAT_ENCRYPTED) {
+                printf("Detected encrypted payload metadata.\n");
+                if (arguments.encryption_method && arguments.encryption_mode && arguments.password) {
+                    unsigned char *decrypted_payload = NULL;
+                    size_t decrypted_payload_size = 0;
+                    if (stego_analysis_decrypt_payload(&analysis_result, arguments.encryption_method, arguments.encryption_mode, arguments.password, &decrypted_payload, &decrypted_payload_size) == 0) {
+                        if (save_extracted_file(decrypted_payload, decrypted_payload_size, arguments.output_bmp_filename) == 0) {
+                            printf("Payload saved to %s\n", arguments.output_bmp_filename);
+                        } else {
+                            printf("Warning: Payload detected but could not be saved to %s\n", arguments.output_bmp_filename);
+                        }
+                        free(decrypted_payload);
+                    } else {
+                        printf("Warning: Detected encrypted payload but decryption failed with the provided parameters\n");
+                    }
+                } else {
+                    printf("Warning: Payload appears encrypted. Provide -a <method> -m <mode> -pass <password> to attempt decryption.\n");
+                }
+            } else if (arguments.output_bmp_filename) {
                 if (save_extracted_file(analysis_result.payload, analysis_result.extracted_payload_size, arguments.output_bmp_filename) == 0) {
                     printf("Payload saved to %s\n", arguments.output_bmp_filename);
                 } else {

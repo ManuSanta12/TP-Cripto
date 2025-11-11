@@ -15,6 +15,7 @@ set(SOURCES
         src/bmp/bmp.c
         src/bmp/bmp_utils.c
         src/crypto/crypto.c
+        src/analysis/stego_analysis.c
 )
 
 set(HEADERS
@@ -26,6 +27,7 @@ set(HEADERS
         include/bmp/bmp.h
         include/bmp/bmp_utils.h
         include/crypto/crypto.h
+        include/analysis/stego_analysis.h
 )
 
 add_executable(stegobmp ${SOURCES} ${HEADERS})
