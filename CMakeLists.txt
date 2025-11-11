@@ -8,6 +8,7 @@ find_package(OpenSSL REQUIRED)
 set(SOURCES
         main.c
         src/parser/parser.c
+        src/analysis/stego_analysis.c
         src/stegobmp/stegobmp.c
         src/stegobmp/stegobmp_lsb.c
         src/stegobmp/stegobmp_utils.c
@@ -18,6 +19,7 @@ set(SOURCES
 
 set(HEADERS
         include/parser/parser.h
+        include/analysis/stego_analysis.h
         include/stegobmp/stegobmp.h
         include/stegobmp/stegobmp_lsb.h
         include/stegobmp/stegobmp_utils.h
