@@ -63,21 +63,25 @@ static int derive_key(const EVP_CIPHER *cipher, const char *password, const unsi
         return 0;
     }
 
-    unsigned char discard_iv[EVP_MAX_IV_LENGTH];
+    (void) salt; /* PBKDF2 salt is fixed by TP spec */
+
     const int expected_key_length = EVP_CIPHER_key_length(cipher);
-    const int derived_length = EVP_BytesToKey(
-        cipher,
-        EVP_sha256(),
-        salt,
-        (const unsigned char *) password,
+    unsigned char fixed_salt[8] = {0}; /* 0x0000000000000000 */
+    const int iterations = 10000;
+
+    const int ok = PKCS5_PBKDF2_HMAC(
+        password,
         (int) strlen(password),
-        1,
-        key_buffer,
-        discard_iv
+        fixed_salt,
+        (int) sizeof fixed_salt,
+        iterations,
+        EVP_sha256(),
+        expected_key_length,
+        key_buffer
     );
 
-    if (derived_length != expected_key_length) {
-        printf("Error: Could not derive key from password\n");
+    if (ok != 1) {
+        printf("Error: Could not derive key from password using PBKDF2\n");
         return 0;
     }
 

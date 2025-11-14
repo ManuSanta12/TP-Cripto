@@ -155,111 +155,142 @@ int lsb_i_hide(BMP *bmp, const unsigned char *payload_buffer, const size_t paylo
 
 unsigned char *lsb_1_retrieve(const BMP *bmp, size_t *extracted_payload_size)
 {
-    if (!bmp)
+    if (!bmp || !extracted_payload_size)
         return NULL;
 
     const unsigned char *data = bmp->data;
-    const uint64_t data_size = (uint64_t)bmp->data_size;
-    if (data_size < (uint64_t)BMP_INT_SIZE_BYTES * (uint64_t)STEGOBMP_LSB1_BYTES_PER_PAYLOAD)
+    const size_t data_size = bmp->data_size;
+
+    const size_t max_payload_bytes = data_size / STEGOBMP_LSB1_BYTES_PER_PAYLOAD;
+    if (max_payload_bytes < BMP_INT_SIZE_BYTES + STEGOBMP_NULL_CHARACTER_SIZE)
         return NULL;
 
-    for (int variant = 0; variant < 2; ++variant)
+    uint64_t cursor = 0;
+    unsigned char size_buf[BMP_INT_SIZE_BYTES];
+
+    for (size_t byte_index = 0; byte_index < BMP_INT_SIZE_BYTES; ++byte_index)
     {
-        int msb_first = (variant == 0);
-        uint64_t cursor = 0;
-        unsigned char size_buf[BMP_INT_SIZE_BYTES];
-
-        for (size_t i = 0; i < BMP_INT_SIZE_BYTES; ++i)
+        unsigned char acc = 0;
+        for (int b = STEGOBMP_LSB1_MOST_SIGNIFICANT_BIT; b >= 0; --b)
         {
-            unsigned char acc = 0;
-            if (msb_first)
-            {
-                for (int b = 7; b >= 0; --b)
-                {
-                    if (cursor >= data_size)
-                    {
-                        acc = 0;
-                        break;
-                    }
-                    unsigned char bit = data[cursor++] & 0x1;
-                    acc |= (unsigned char)(bit << b);
-                }
-            }
-            else
-            {
-                for (int b = 0; b < 8; ++b)
-                {
-                    if (cursor >= data_size)
-                    {
-                        acc = 0;
-                        break;
-                    }
-                    unsigned char bit = data[cursor++] & 0x1;
-                    acc = (unsigned char)((acc << 1) | bit);
-                }
-            }
-            size_buf[i] = acc;
-        }
+            if (cursor >= data_size)
+                return NULL;
 
-        const uint32_t file_size = read_uint32_big_endian(size_buf);
-        if (file_size == 0)
-            continue;
-        const uint64_t max_possible_payload = data_size / STEGOBMP_LSB1_BYTES_PER_PAYLOAD;
-        if ((uint64_t)file_size + BMP_INT_SIZE_BYTES + 2 > max_possible_payload)
-            continue;
-
-        unsigned char *buffer = malloc((size_t)max_possible_payload);
-        if (!buffer)
-            return NULL;
-        memcpy(buffer, size_buf, BMP_INT_SIZE_BYTES);
-        size_t out_index = BMP_INT_SIZE_BYTES;
-        int found_terminator = 0;
-        while (cursor < data_size && out_index < max_possible_payload)
-        {
-            unsigned char acc = 0;
-            if (msb_first)
-            {
-                for (int b = 7; b >= 0; --b)
-                {
-                    if (cursor >= data_size)
-                        break;
-                    unsigned char bit = data[cursor++] & 0x1;
-                    acc |= (unsigned char)(bit << b);
-                }
-            }
-            else
-            {
-                for (int b = 0; b < 8; ++b)
-                {
-                    if (cursor >= data_size)
-                        break;
-                    unsigned char bit = data[cursor++] & 0x1;
-                    acc = (unsigned char)((acc << 1) | bit);
-                }
-            }
-            buffer[out_index] = acc;
-            if (out_index >= BMP_INT_SIZE_BYTES + file_size && acc == STEGOBMP_NULL_CHARACTER)
-            {
-                found_terminator = 1;
-                out_index++;
-                break;
-            }
-            out_index++;
-            if (out_index > BMP_INT_SIZE_BYTES + file_size + 32 + 16)
-            {
-                break;
-            }
+            const unsigned char bit = data[cursor++] & STEGOBMP_LSB1_BIT_MASK_1;
+            acc |= (unsigned char)(bit << b);
         }
-        if (!found_terminator)
-        {
-            free(buffer);
-            continue;
-        }
-        *extracted_payload_size = out_index;
-        return buffer;
+        size_buf[byte_index] = acc;
     }
-    return NULL;
+
+    const uint32_t file_size = read_uint32_big_endian(size_buf);
+    if (file_size == 0)
+        return NULL;
+
+    const size_t max_possible_payload = max_payload_bytes;
+    unsigned char *buffer = malloc(max_possible_payload);
+    if (!buffer)
+        return NULL;
+
+    memcpy(buffer, size_buf, BMP_INT_SIZE_BYTES);
+
+    size_t out_index = BMP_INT_SIZE_BYTES;
+    int found_terminator = 0;
+
+    while (out_index < max_possible_payload)
+    {
+        unsigned char acc = 0;
+        for (int b = STEGOBMP_LSB1_MOST_SIGNIFICANT_BIT; b >= 0; --b)
+        {
+            if (cursor >= data_size)
+                goto end_of_data;
+
+            const unsigned char bit = data[cursor++] & STEGOBMP_LSB1_BIT_MASK_1;
+            acc |= (unsigned char)(bit << b);
+        }
+
+        buffer[out_index++] = acc;
+
+        if (out_index > BMP_INT_SIZE_BYTES + file_size && acc == STEGOBMP_NULL_CHARACTER)
+        {
+            found_terminator = 1;
+            break;
+        }
+    }
+
+end_of_data:
+
+    if (!found_terminator)
+    {
+        free(buffer);
+        return NULL;
+    }
+
+    *extracted_payload_size = out_index;
+    return buffer;
 }
+
+unsigned char *lsb_1_retrieve_encrypted(const BMP *bmp, size_t *extracted_payload_size)
+{
+    if (!bmp || !extracted_payload_size)
+        return NULL;
+
+    const unsigned char *data = bmp->data;
+    const size_t data_size = bmp->data_size;
+
+    const size_t max_payload_bytes = data_size / STEGOBMP_LSB1_BYTES_PER_PAYLOAD;
+    if (max_payload_bytes < BMP_INT_SIZE_BYTES)
+        return NULL;
+
+    uint64_t cursor = 0;
+    unsigned char size_buf[BMP_INT_SIZE_BYTES];
+
+    for (size_t byte_index = 0; byte_index < BMP_INT_SIZE_BYTES; ++byte_index)
+    {
+        unsigned char acc = 0;
+        for (int b = STEGOBMP_LSB1_MOST_SIGNIFICANT_BIT; b >= 0; --b)
+        {
+            if (cursor >= data_size)
+                return NULL;
+
+            const unsigned char bit = data[cursor++] & STEGOBMP_LSB1_BIT_MASK_1;
+            acc |= (unsigned char)(bit << b);
+        }
+        size_buf[byte_index] = acc;
+    }
+
+    const uint32_t cipher_size = read_uint32_big_endian(size_buf);
+    if (cipher_size == 0 || cipher_size > max_payload_bytes - BMP_INT_SIZE_BYTES)
+        return NULL;
+
+    const size_t total_size = BMP_INT_SIZE_BYTES + (size_t)cipher_size;
+    unsigned char *buffer = malloc(total_size);
+    if (!buffer)
+        return NULL;
+
+    memcpy(buffer, size_buf, BMP_INT_SIZE_BYTES);
+
+    size_t out_index = BMP_INT_SIZE_BYTES;
+    while (out_index < total_size)
+    {
+        unsigned char acc = 0;
+        for (int b = STEGOBMP_LSB1_MOST_SIGNIFICANT_BIT; b >= 0; --b)
+        {
+            if (cursor >= data_size)
+            {
+                free(buffer);
+                return NULL;
+            }
+
+            const unsigned char bit = data[cursor++] & STEGOBMP_LSB1_BIT_MASK_1;
+            acc |= (unsigned char)(bit << b);
+        }
+        buffer[out_index++] = acc;
+    }
+
+    *extracted_payload_size = total_size;
+    return buffer;
+}
+
 
 unsigned char *lsb_4_retrieve(const BMP *bmp, size_t *extracted_payload_size)
 {

@@ -172,8 +172,14 @@ int extract_file_from_bmp(const BMP *bmp, const char *output_filename, const cha
     unsigned char *payload_buffer = NULL;
     size_t extracted_payload_size = 0;
 
+    const int encryption_enabled = string_has_value(encryption_method) && string_has_value(encryption_mode) && string_has_value(password);
+
     if (strcmp(steganography_method, STEGOBMP_LSB1_METHOD) == 0) {
-        payload_buffer = lsb_1_retrieve(bmp, &extracted_payload_size);
+        if (encryption_enabled) {
+            payload_buffer = lsb_1_retrieve_encrypted(bmp, &extracted_payload_size);
+        } else {
+            payload_buffer = lsb_1_retrieve(bmp, &extracted_payload_size);
+        }
         if (!payload_buffer) {
             printf("Error: Could not retrieve payload using LSB1\n");
             return 1;
@@ -192,89 +198,24 @@ int extract_file_from_bmp(const BMP *bmp, const char *output_filename, const cha
         }
     }
 
-    const int encryption_enabled = string_has_value(encryption_method) && string_has_value(encryption_mode) && string_has_value(password);
-
     unsigned char *data_to_save = payload_buffer;
     size_t data_to_save_size = extracted_payload_size;
 
     if (encryption_enabled) {
-        if (extracted_payload_size < BMP_INT_SIZE_BYTES + CRYPTO_SALT_SIZE + CRYPTO_METADATA_IV_LEN_SIZE + STEGOBMP_NULL_CHARACTER_SIZE) {
-            printf("Error: Payload too small to contain encryption metadata\n");
+        if (extracted_payload_size < BMP_INT_SIZE_BYTES + 1) {
+            printf("Error: Payload too small to contain encrypted data\n");
             free(payload_buffer);
             return 1;
         }
 
-        const uint32_t encrypted_section_size = read_uint32_big_endian(payload_buffer);
-        const size_t expected_total_size = BMP_INT_SIZE_BYTES + (size_t) encrypted_section_size + STEGOBMP_NULL_CHARACTER_SIZE;
-
-        if (expected_total_size > extracted_payload_size) {
+        const uint32_t cipher_length = read_uint32_big_endian(payload_buffer);
+        if (cipher_length == 0 || (size_t)cipher_length > extracted_payload_size - BMP_INT_SIZE_BYTES) {
             printf("Error: Encrypted payload size inconsistent\n");
             free(payload_buffer);
             return 1;
         }
 
-        if (payload_buffer[expected_total_size - 1] != STEGOBMP_NULL_CHARACTER) {
-            printf("Error: Encrypted payload missing terminator\n");
-            free(payload_buffer);
-            return 1;
-        }
-
-        if (encrypted_section_size < CRYPTO_SALT_SIZE + CRYPTO_METADATA_IV_LEN_SIZE) {
-            printf("Error: Encrypted section too small for metadata\n");
-            free(payload_buffer);
-            return 1;
-        }
-
-        unsigned char salt[CRYPTO_SALT_SIZE];
-        unsigned char iv[CRYPTO_MAX_IV_SIZE] = {0};
-
-        const unsigned char *cursor = payload_buffer + BMP_INT_SIZE_BYTES;
-
-        memcpy(salt, cursor, CRYPTO_SALT_SIZE);
-        cursor += CRYPTO_SALT_SIZE;
-
-        const unsigned char iv_length = *cursor;
-        cursor += CRYPTO_METADATA_IV_LEN_SIZE;
-
-        if (iv_length > CRYPTO_MAX_IV_SIZE) {
-            printf("Error: Invalid IV length in payload\n");
-            free(payload_buffer);
-            return 1;
-        }
-
-        if ((size_t) iv_length + CRYPTO_SALT_SIZE + CRYPTO_METADATA_IV_LEN_SIZE > encrypted_section_size) {
-            printf("Error: IV length exceeds encrypted section size\n");
-            free(payload_buffer);
-            return 1;
-        }
-
-        if (iv_length > 0) {
-            memcpy(iv, cursor, iv_length);
-            cursor += iv_length;
-        }
-
-        const size_t metadata_without_cipher_len = CRYPTO_SALT_SIZE + CRYPTO_METADATA_IV_LEN_SIZE + (size_t) iv_length;
-        if (encrypted_section_size < metadata_without_cipher_len + BMP_INT_SIZE_BYTES) {
-            printf("Error: Encrypted section too small for cipher metadata\n");
-            free(payload_buffer);
-            return 1;
-        }
-
-        const uint32_t cipher_length = read_uint32_big_endian(cursor);
-        cursor += BMP_INT_SIZE_BYTES;
-
-        const size_t consumed_metadata = metadata_without_cipher_len + BMP_INT_SIZE_BYTES;
-        if (cipher_length > encrypted_section_size - consumed_metadata) {
-            printf("Error: Cipher length exceeds available encrypted data\n");
-            free(payload_buffer);
-            return 1;
-        }
-
-        if (cipher_length > (uint32_t) INT_MAX) {
-            printf("Error: Cipher length too large to decrypt\n");
-            free(payload_buffer);
-            return 1;
-        }
+        const unsigned char *ciphertext = payload_buffer + BMP_INT_SIZE_BYTES;
 
         const int block_size = crypto_get_block_size(encryption_method, encryption_mode);
         if (block_size < 0) {
@@ -283,21 +224,24 @@ int extract_file_from_bmp(const BMP *bmp, const char *output_filename, const cha
             return 1;
         }
 
-        unsigned char *decrypted_buffer = malloc((size_t) cipher_length + (size_t) block_size);
+        unsigned char *decrypted_buffer = malloc((size_t)cipher_length + (size_t)block_size);
         if (!decrypted_buffer) {
             printf("Error: Could not allocate memory for decrypted payload\n");
             free(payload_buffer);
             return 1;
         }
 
+        unsigned char fixed_salt[CRYPTO_SALT_SIZE] = {0};
+        unsigned char iv[CRYPTO_MAX_IV_SIZE] = {0};
+
         const int plain_length = crypto_decrypt(
-            cursor,
-            (int) cipher_length,
+            ciphertext,
+            (int)cipher_length,
             encryption_method,
             encryption_mode,
             password,
-            salt,
-            iv_length > 0 ? iv : NULL,
+            fixed_salt,
+            NULL,
             decrypted_buffer
         );
 
@@ -309,7 +253,7 @@ int extract_file_from_bmp(const BMP *bmp, const char *output_filename, const cha
         }
 
         data_to_save = decrypted_buffer;
-        data_to_save_size = (size_t) plain_length;
+        data_to_save_size = (size_t)plain_length;
         free(payload_buffer);
     }
 

@@ -25,6 +25,7 @@ int lsb_4_hide(BMP *bmp, const unsigned char *payload_buffer, size_t payload_siz
 int lsb_i_hide(BMP *bmp, const unsigned char *payload_buffer, size_t payload_size);
 
 unsigned char *lsb_1_retrieve(const BMP *bmp, size_t *extracted_payload_size);
+unsigned char *lsb_1_retrieve_encrypted(const BMP *bmp, size_t *extracted_payload_size);
 unsigned char *lsb_4_retrieve(const BMP *bmp, size_t *extracted_payload_size);
 unsigned char *lsb_i_retrieve(const BMP *bmp, size_t *extracted_payload_size);
 
