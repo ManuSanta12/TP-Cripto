@@ -9,8 +9,14 @@ usage() {
     cat <<EOF
 Usage: $0 <carrier_bmp> [stegobmp_binary]
 
-Runs embed/extract tests for every supported crypto method/mode combination
-using LSB1 steganography. The carrier BMP must be a writable 24-bit image.
+Runs embed/extract tests for:
+  - Every supported crypto method/mode combination (LSB1, explicit -a/-m/-pass).
+  - Parser defaults when only some crypto options are provided (LSBI, relying on defaults):
+      * -a + -pass (mode defaults to cbc)
+      * -m + -pass (method defaults to aes128)
+      * only -pass (aes128-cbc by default)
+
+The carrier BMP must be a writable 24-bit image.
 
 Arguments:
   carrier_bmp       Path to the BMP file that will be used as carrier.
@@ -113,9 +119,66 @@ for method in "${METHODS[@]}"; do
     done
 done
 
+printf -- "\n[+] Testing parser defaults with LSBI steganography\n"
+
+# 1) -a + -pass, sin -m (modo por defecto CBC)
+DEFAULT_TESTS_FAIL=0
+
+run_default_test() {
+    local test_id="$1"
+    shift
+    local embed_args=("$@")
+
+    local out_bmp="${WORKDIR}/embedded_defaults_${test_id}.bmp"
+    local recovery_prefix="${WORKDIR}/recovered_defaults_${test_id}"
+    local recovered_file="${recovery_prefix}.txt"
+    local embed_log="${WORKDIR}/embed_defaults_${test_id}.log"
+    local extract_log="${WORKDIR}/extract_defaults_${test_id}.log"
+
+    printf -- "\n  [-] Default test: %s\n" "${test_id}"
+
+    if ! "${STEGOBMP_BIN}" \
+        -embed \
+        -in "${MESSAGE_FILE}" \
+        -p "${CARRIER_BMP}" \
+        -out "${out_bmp}" \
+        -steg "LSBI" \
+        "${embed_args[@]}" >"${embed_log}" 2>&1; then
+        echo "    Embed failed. Check ${embed_log}"
+        ((FAILURES++))
+        ((DEFAULT_TESTS_FAIL++))
+        return
+    fi
+
+    if ! "${STEGOBMP_BIN}" \
+        -extract \
+        -p "${out_bmp}" \
+        -out "${recovery_prefix}" \
+        -steg "LSBI" \
+        "${embed_args[@]}" >"${extract_log}" 2>&1; then
+        echo "    Extract failed. Check ${extract_log}"
+        ((FAILURES++))
+        ((DEFAULT_TESTS_FAIL++))
+        return
+    fi
+
+    if ! cmp -s "${MESSAGE_FILE}" "${recovered_file}"; then
+        echo "    Payload mismatch for default test ${test_id}"
+        ((FAILURES++))
+        ((DEFAULT_TESTS_FAIL++))
+        return
+    fi
+
+    echo "    OK"
+}
+
+run_default_test "a_plus_pass_3des" -a "3des" -pass "${PASSWORD}"
+run_default_test "m_plus_pass_cbc" -m "cbc" -pass "${PASSWORD}"
+run_default_test "pass_only" -pass "${PASSWORD}"
+
 printf -- "\n----------------------------------------\n"
 if [[ ${FAILURES} -eq 0 ]]; then
-    printf -- "All crypto embedding tests succeeded.\n"
+    printf -- "All crypto embedding tests (including parser defaults) succeeded.\n"
 else
     printf -- "%d test(s) failed. Inspect the logs above.\n" "${FAILURES}"
     exit 1

@@ -208,14 +208,65 @@ int extract_file_from_bmp(const BMP *bmp, const char *output_filename, const cha
             return 1;
         }
 
-        const uint32_t cipher_length = read_uint32_big_endian(payload_buffer);
-        if (cipher_length == 0 || (size_t)cipher_length > extracted_payload_size - BMP_INT_SIZE_BYTES) {
+        const uint32_t header_length = read_uint32_big_endian(payload_buffer);
+        if (header_length == 0 || (size_t)header_length > extracted_payload_size - BMP_INT_SIZE_BYTES) {
             printf("Error: Encrypted payload size inconsistent\n");
             free(payload_buffer);
             return 1;
         }
 
-        const unsigned char *ciphertext = payload_buffer + BMP_INT_SIZE_BYTES;
+        const unsigned char *ciphertext = NULL;
+        uint32_t cipher_length = 0;
+        unsigned char iv[CRYPTO_MAX_IV_SIZE] = {0};
+        unsigned char iv_length = 0;
+        unsigned char salt_buffer[CRYPTO_SALT_SIZE] = {0};
+        const unsigned char *salt_ptr = salt_buffer;
+
+        int use_metadata_format = 0;
+
+        if (header_length >= CRYPTO_SALT_SIZE + CRYPTO_METADATA_IV_LEN_SIZE + BMP_INT_SIZE_BYTES &&
+            extracted_payload_size >= BMP_INT_SIZE_BYTES + header_length) {
+
+            const unsigned char *cursor = payload_buffer + BMP_INT_SIZE_BYTES;
+            const unsigned char *candidate_salt = cursor;
+            cursor += CRYPTO_SALT_SIZE;
+
+            const unsigned char candidate_iv_length = *cursor;
+
+            if (candidate_iv_length <= CRYPTO_MAX_IV_SIZE) {
+                iv_length = candidate_iv_length;
+                cursor += CRYPTO_METADATA_IV_LEN_SIZE;
+
+                const size_t metadata_size = CRYPTO_SALT_SIZE + CRYPTO_METADATA_IV_LEN_SIZE + (size_t)iv_length + BMP_INT_SIZE_BYTES;
+
+                if ((size_t)header_length >= metadata_size) {
+                    const unsigned char *meta_cursor = cursor;
+
+                    if (iv_length > 0) {
+                        memcpy(iv, meta_cursor, (size_t)iv_length);
+                        meta_cursor += iv_length;
+                    }
+
+                    const uint32_t candidate_cipher_length = read_uint32_big_endian(meta_cursor);
+                    meta_cursor += BMP_INT_SIZE_BYTES;
+
+                    if (candidate_cipher_length > 0 &&
+                        (size_t)candidate_cipher_length == (size_t)header_length - metadata_size) {
+
+                        memcpy(salt_buffer, candidate_salt, CRYPTO_SALT_SIZE);
+                        cipher_length = candidate_cipher_length;
+                        ciphertext = meta_cursor;
+                        use_metadata_format = 1;
+                    }
+                }
+            }
+        }
+
+        if (!use_metadata_format) {
+            cipher_length = header_length;
+            ciphertext = payload_buffer + BMP_INT_SIZE_BYTES;
+            iv_length = 0;
+        }
 
         const int block_size = crypto_get_block_size(encryption_method, encryption_mode);
         if (block_size < 0) {
@@ -231,17 +282,14 @@ int extract_file_from_bmp(const BMP *bmp, const char *output_filename, const cha
             return 1;
         }
 
-        unsigned char fixed_salt[CRYPTO_SALT_SIZE] = {0};
-        unsigned char iv[CRYPTO_MAX_IV_SIZE] = {0};
-
         const int plain_length = crypto_decrypt(
             ciphertext,
             (int)cipher_length,
             encryption_method,
             encryption_mode,
             password,
-            fixed_salt,
-            NULL,
+            salt_ptr,
+            iv_length > 0 ? iv : NULL,
             decrypted_buffer
         );
 

@@ -125,19 +125,34 @@ int parse_arguments(const int argc, char *argv[], ProgramArguments *arguments) {
         return 1;
     }
 
-    const int encryption_method_provided = arguments->encryption_method && arguments->encryption_method[0] != '\0';
-    const int encryption_mode_provided = arguments->encryption_mode && arguments->encryption_mode[0] != '\0';
+    int encryption_method_provided = arguments->encryption_method && arguments->encryption_method[0] != '\0';
+    int encryption_mode_provided = arguments->encryption_mode && arguments->encryption_mode[0] != '\0';
     const int password_provided = arguments->password && arguments->password[0] != '\0';
 
-
-    if ((encryption_method_provided && !encryption_mode_provided) ||
-        (!encryption_method_provided && encryption_mode_provided)) {
-        printf("Error: Encryption requires both -a <method> and -m <mode>\n");
-        return 1;
+    /* Defaults when password is present:
+     *  - method + password, no mode    => mode = "cbc"
+     *  - mode + password, no method    => method = "aes128"
+     *  - only password                 => method = "aes128", mode = "cbc"
+     */
+    if (password_provided) {
+        if (encryption_method_provided && !encryption_mode_provided) {
+            arguments->encryption_mode = "cbc";
+            encryption_mode_provided = 1;
+        } else if (!encryption_method_provided && encryption_mode_provided) {
+            arguments->encryption_method = "aes128";
+            encryption_method_provided = 1;
+        } else if (!encryption_method_provided && !encryption_mode_provided) {
+            arguments->encryption_method = "aes128";
+            arguments->encryption_mode = "cbc";
+            encryption_method_provided = 1;
+            encryption_mode_provided = 1;
+        }
     }
 
-    if (password_provided && !encryption_method_provided) {
-        printf("Error: -pass <password> provided without -a <method>\n");
+    /* Without password, requiring both -a and -m avoids ambiguous configs. */
+    if ((encryption_method_provided && !encryption_mode_provided) ||
+        (!encryption_method_provided && encryption_mode_provided)) {
+        printf("Error: Encryption requires both -a <method> and -m <mode> (or rely on defaults by providing -pass)\n");
         return 1;
     }
 
