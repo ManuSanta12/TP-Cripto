@@ -129,13 +129,15 @@ int parse_arguments(const int argc, char *argv[], ProgramArguments *arguments) {
     const int encryption_mode_provided = arguments->encryption_mode && arguments->encryption_mode[0] != '\0';
     const int password_provided = arguments->password && arguments->password[0] != '\0';
 
-    if (encryption_method_provided) {
-        if (!encryption_mode_provided || !password_provided) {
-            printf("Error: Encryption requires both -m <mode> and -pass <password>\n");
-            return 1;
-        }
-    } else if (encryption_mode_provided || password_provided) {
-        printf("Error: Encryption mode or password provided without -a <method>\n");
+
+    if ((encryption_method_provided && !encryption_mode_provided) ||
+        (!encryption_method_provided && encryption_mode_provided)) {
+        printf("Error: Encryption requires both -a <method> and -m <mode>\n");
+        return 1;
+    }
+
+    if (password_provided && !encryption_method_provided) {
+        printf("Error: -pass <password> provided without -a <method>\n");
         return 1;
     }
 
